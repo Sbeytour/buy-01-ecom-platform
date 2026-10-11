@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import ecom.user_service.dto.request.LoginRequest;
 import ecom.user_service.dto.request.RegisterRequest;
 import ecom.user_service.dto.response.AuthResponse;
+import ecom.user_service.dto.response.RegisterResponse;
 import ecom.user_service.dto.response.UserResponse;
 import ecom.user_service.exceptions.EmailAlreadyExistsException;
 import ecom.user_service.exceptions.InvalidCredentialsException;
@@ -26,7 +27,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
-    public AuthResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
             throw new EmailAlreadyExistsException("Email already exists");
         }
@@ -38,8 +39,7 @@ public class AuthService {
         newUser.setRole(request.role());
 
         User savedUser = userRepository.save(newUser);
-        String token = jwtService.generateToken(newUser);
-        return new AuthResponse(token, UserResponse.fromEntity(savedUser));
+        return new RegisterResponse(UserResponse.fromEntity(savedUser));
     }
 
     public AuthResponse login(LoginRequest request) {

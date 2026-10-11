@@ -62,7 +62,7 @@ describe('AuthService', () => {
     });
 
     describe('#register', () => {
-        it('should send a POST request and set session on successful registration', () => {
+        it('should register without creating a session', () => {
             const registerPayload: RegisterRequest = {
                 email: 'test@example.com',
                 password: 'password123',
@@ -72,15 +72,15 @@ describe('AuthService', () => {
 
             service.register(registerPayload).subscribe((user) => {
                 expect(user).toEqual(mockUser);
-                expect(service.currentUser()).toEqual(mockUser);
-                expect(service.isAuthenticated()).toBe(true);
-                expect(localStorage.getItem(tokenKey)).toBe(mockAuthResponse.token);
+                expect(service.currentUser()).toBeNull();
+                expect(service.isAuthenticated()).toBe(false);
+                expect(localStorage.getItem(tokenKey)).toBeNull();
             });
 
             const req = httpTestingController.expectOne('/auth/register');
             expect(req.request.method).toBe('POST');
             expect(req.request.body).toEqual(registerPayload);
-            req.flush(mockAuthResponse);
+            req.flush({ user: mockUser });
         });
     });
 
@@ -102,6 +102,59 @@ describe('AuthService', () => {
             expect(req.request.method).toBe('POST');
             expect(req.request.body).toEqual(loginPayload);
             req.flush(mockAuthResponse);
+        });
+    });
+
+    describe('registration avatar', () => {
+        const payload: RegisterRequest = {
+            username: 'TestUser', email: mockUser.email, password: 'password123', role: 'CLIENT'
+        };
+        const file = new File(['image'], 'avatar.png', { type: 'image/png' });
+
+        function registerWithAvatar(): void {
+            service.register(payload, file).subscribe();
+            httpTestingController.expectOne('/auth/register').flush({ user: mockUser });
+            expect(service.getToken()).toBeNull();
+            httpTestingController.expectNone('/media/profile');
+        }
+
+        it('should upload after login and link the image to the matching account', () => {
+            registerWithAvatar();
+            const updated = { ...mockUser, avatarMediaId: 'avatar-1' };
+            service.login(payload).subscribe(user => expect(user).toEqual(updated));
+            httpTestingController.expectOne('/auth/login').flush(mockAuthResponse);
+            expect(service.getToken()).toBe(mockAuthResponse.token);
+            const upload = httpTestingController.expectOne('/media/profile');
+            expect((upload.request.body as FormData).get('file')).toEqual(file);
+            upload.flush({ avatar: { id: 'avatar-1', url: '/image' } });
+            const update = httpTestingController.expectOne('/users/me');
+            expect(update.request.body).toEqual({ avatarMediaId: 'avatar-1' });
+            update.flush(updated);
+            expect(service.currentUser()).toEqual(updated);
+            service.login(payload).subscribe();
+            httpTestingController.expectOne('/auth/login').flush(mockAuthResponse);
+            httpTestingController.expectNone('/media/profile');
+        });
+
+        it('should not attach the picture to a different account', () => {
+            registerWithAvatar();
+            service.login(payload).subscribe();
+            httpTestingController.expectOne('/auth/login').flush({ ...mockAuthResponse, user: { ...mockUser, userId: 'other-user' } });
+            httpTestingController.expectNone('/media/profile');
+        });
+
+        it('should preserve successful login and allow a retry when upload fails', () => {
+            registerWithAvatar();
+            service.login(payload).subscribe(user => expect(user).toEqual(mockUser));
+            httpTestingController.expectOne('/auth/login').flush(mockAuthResponse);
+            httpTestingController.expectOne('/media/profile').flush({}, { status: 503, statusText: 'Unavailable' });
+            expect(service.isAuthenticated()).toBeTrue();
+            expect(service.avatarUploadWarning()).toContain('could not be saved');
+            service.login(payload).subscribe();
+            httpTestingController.expectOne('/auth/login').flush(mockAuthResponse);
+            httpTestingController.expectOne('/media/profile').flush({ avatar: { id: 'retry-avatar', url: '/image' } });
+            httpTestingController.expectOne('/users/me').flush({ ...mockUser, avatarMediaId: 'retry-avatar' });
+            expect(service.avatarUploadWarning()).toBe('');
         });
     });
 

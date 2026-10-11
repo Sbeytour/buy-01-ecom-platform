@@ -100,9 +100,6 @@
         @if (submitError()) {
           <p class="form-error">{{ submitError() }}</p>
         }
-        @if (avatarUploadWarning()) {
-          <p class="form-error">{{ avatarUploadWarning() }}</p>
-        }
       </form>
 
       <p class="login-link">Already have an account? <a routerLink="/login">Log in</a></p>

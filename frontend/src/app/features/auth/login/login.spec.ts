@@ -3,6 +3,7 @@ import { ANIMATION_MODULE_TYPE } from '@angular/platform-browser/animations';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { signal } from '@angular/core';
 
 import { Login } from './login';
 import { AuthService } from '../../../core/services/auth.service';
@@ -16,7 +17,7 @@ describe('Login Component', () => {
 
   beforeEach(async () => {
     // Create spies for our injected dependencies
-    authServiceSpy = jasmine.createSpyObj('AuthService', ['login']);
+    authServiceSpy = jasmine.createSpyObj('AuthService', ['login'], { avatarUploadWarning: signal('') });
 
     await TestBed.configureTestingModule({
       // Import the standalone component

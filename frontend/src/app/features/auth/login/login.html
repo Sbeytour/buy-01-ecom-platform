@@ -39,6 +39,11 @@
         }
       </form>
 
+      @if (avatarUploadWarning()) {
+        <p role="status">{{ avatarUploadWarning() }}</p>
+        <a [routerLink]="continuePath()">Continue to your account</a>
+      }
+
       <p class="register-link">Don't have an account? <a routerLink="/register">Sign up</a></p>
     </div>
   </div>

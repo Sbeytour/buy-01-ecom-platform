@@ -30,6 +30,8 @@ export class Login {
   readonly hidePassword = signal(true);
   readonly isSubmitting = signal(false);
   readonly submitError = signal('');
+  readonly avatarUploadWarning = signal('');
+  readonly continuePath = signal('/shop');
 
   readonly loginForm = new FormGroup({
     email: new FormControl('', {
@@ -65,7 +67,13 @@ export class Login {
       .subscribe({
         next: (user) => {
           const redirectPath = user.role === 'SELLER' ? '/seller' : '/shop';
-          void this.router.navigateByUrl(redirectPath);
+          const warning = this.authService.avatarUploadWarning();
+          if (warning) {
+            this.avatarUploadWarning.set(warning);
+            this.continuePath.set(redirectPath);
+          } else {
+            void this.router.navigateByUrl(redirectPath);
+          }
         },
         error: (error: HttpErrorResponse) => this.handleSubmitError(error),
       });

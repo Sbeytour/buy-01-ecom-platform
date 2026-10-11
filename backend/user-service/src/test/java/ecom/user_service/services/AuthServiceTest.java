@@ -19,6 +19,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import ecom.user_service.dto.request.LoginRequest;
 import ecom.user_service.dto.request.RegisterRequest;
 import ecom.user_service.dto.response.AuthResponse;
+import ecom.user_service.dto.response.RegisterResponse;
 import ecom.user_service.exceptions.EmailAlreadyExistsException;
 import ecom.user_service.exceptions.InvalidCredentialsException;
 import ecom.user_service.models.Role;
@@ -60,12 +61,11 @@ class AuthServiceTest {
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(mockUser);
-        when(jwtService.generateToken(any(User.class))).thenReturn("mock-jwt-token");
 
-        AuthResponse response = authService.register(request);
+        RegisterResponse response = authService.register(request);
 
         assertNotNull(response);
-        assertEquals("mock-jwt-token", response.token());
+        assertEquals("test@test.com", response.user().email());
         verify(userRepository).save(any(User.class));
     }
 

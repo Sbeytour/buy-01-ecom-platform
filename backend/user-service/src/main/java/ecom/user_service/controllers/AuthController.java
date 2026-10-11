@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ecom.user_service.dto.request.LoginRequest;
 import ecom.user_service.dto.request.RegisterRequest;
 import ecom.user_service.dto.response.AuthResponse;
+import ecom.user_service.dto.response.RegisterResponse;
 import ecom.user_service.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +23,9 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse authResponse = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(authResponse);
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+        RegisterResponse registerResponse = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(registerResponse);
     }
 
     @PostMapping("/login")

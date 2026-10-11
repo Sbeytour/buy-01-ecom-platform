@@ -10,7 +10,6 @@ import { AuthService } from '../../../core/services/auth.service';
 import { MediaService } from '../../../core/services/media.service';
 import { UserService } from '../../../core/services/user.service';
 import { User } from '../../../core/models/user';
-import { ProfileImageResponse } from '../../../core/models/media';
 
 describe('Register Component', () => {
   let component: Register;
@@ -177,55 +176,38 @@ describe('Register Component', () => {
       expect(component.registerForm.value.username).toBe('TestUser');
     });
 
-    it('should submit successfully without avatar and navigate to /shop for CLIENT', () => {
+    it('should register a client and navigate to login', () => {
       authServiceSpy.register.and.returnValue(of(mockUser));
       component.registerForm.setValue(validFormData);
 
       component.onSubmit();
 
       expect(component.isSubmitting()).toBeFalse();
-      expect(authServiceSpy.register).toHaveBeenCalledWith(validFormData);
+      expect(authServiceSpy.register).toHaveBeenCalledWith(validFormData, null);
       expect(mediaServiceSpy.uploadProfile).not.toHaveBeenCalled();
-      expect(router.navigateByUrl).toHaveBeenCalledWith('/shop');
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
     });
 
-    it('should submit successfully with avatar and navigate to /seller for SELLER', () => {
-      const sellerUser = { ...mockUser, role: 'SELLER' } as User;
-      const mockProfileImage = { avatar: { id: 'media-123', url: '' } } as ProfileImageResponse;
-
-      authServiceSpy.register.and.returnValue(of(sellerUser));
-      mediaServiceSpy.uploadProfile.and.returnValue(of(mockProfileImage));
-      userServiceSpy.updateProfile.and.returnValue(of(sellerUser));
-
+    it('should redirect sellers to login without authenticating them', () => {
+      authServiceSpy.register.and.returnValue(of({ ...mockUser, role: 'SELLER' }));
       component.registerForm.setValue({ ...validFormData, role: 'SELLER' });
-
-      // Simulate setting an avatar
-      const mockFile = new File([''], 'avatar.png', { type: 'image/png' });
-      const mockEvent = { target: { files: [mockFile] } } as unknown as Event;
-      component.onAvatarSelected(mockEvent);
-
       component.onSubmit();
-
-      expect(authServiceSpy.register).toHaveBeenCalled();
-      expect(mediaServiceSpy.uploadProfile).toHaveBeenCalledWith(mockFile);
-      expect(userServiceSpy.updateProfile).toHaveBeenCalledWith({ avatarMediaId: 'media-123' });
-      expect(router.navigateByUrl).toHaveBeenCalledWith('/seller');
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
+      expect(authServiceSpy.currentUser()).toBeNull();
+      expect(mediaServiceSpy.uploadProfile).not.toHaveBeenCalled();
     });
 
-    it('should handle avatar upload failure gracefully and still navigate', () => {
+    it('should retain the selected photo for login without uploading at registration', () => {
+      spyOn(URL, 'createObjectURL').and.returnValue('blob:avatar');
+      spyOn(URL, 'revokeObjectURL');
+      const file = new File(['image'], 'avatar.png', { type: 'image/png' });
+      component.onAvatarSelected({ target: { files: [file], value: '' } } as unknown as Event);
       authServiceSpy.register.and.returnValue(of(mockUser));
-      mediaServiceSpy.uploadProfile.and.returnValue(throwError(() => new Error('Upload Failed')));
-
       component.registerForm.setValue(validFormData);
-
-      const mockFile = new File([''], 'avatar.png', { type: 'image/png' });
-      const mockEvent = { target: { files: [mockFile] } } as unknown as Event;
-      component.onAvatarSelected(mockEvent);
-
       component.onSubmit();
-
-      expect(component.avatarUploadWarning()).toContain('avatar upload failed');
-      expect(router.navigateByUrl).toHaveBeenCalledWith('/shop');
+      expect(authServiceSpy.register).toHaveBeenCalledWith(validFormData, file);
+      expect(mediaServiceSpy.uploadProfile).not.toHaveBeenCalled();
+      expect(router.navigateByUrl).toHaveBeenCalledWith('/login');
     });
 
     it('should handle backend generic errors correctly', () => {
