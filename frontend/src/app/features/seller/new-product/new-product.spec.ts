@@ -42,6 +42,7 @@ describe('NewProduct Component', () => {
   beforeEach(async () => {
     productServiceSpy = jasmine.createSpyObj('ProductService', [
       'createProduct',
+      'deleteProduct',
       'updateProduct',
       'getSingleProduct',
     ]);
@@ -126,7 +127,7 @@ describe('NewProduct Component', () => {
         component.onFileSelected(event);
 
         expect(component.images().length).toBe(0);
-        expect(component.imageError()).toContain('Only PNG/JPG/GIF/WEBP images up to 2MB');
+        expect(component.imageError()).toContain('Image size limit exceeded');
       });
 
       it('should enforce a maximum of 5 images', () => {
@@ -136,7 +137,7 @@ describe('NewProduct Component', () => {
         component.onFileSelected(event);
 
         expect(component.images().length).toBe(5);
-        expect(component.imageError()).toContain('Only PNG/JPG/GIF/WEBP images up to 2MB');
+        expect(component.imageError()).toContain('Maximum 5 images');
       });
 
       it('should remove an image by index', () => {
@@ -190,6 +191,107 @@ describe('NewProduct Component', () => {
         expect(productServiceSpy.updateProduct).toHaveBeenCalledWith('prod-123', { mediaIds: ['media-1'] });
         expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/seller');
         expect(component.isSubmitting()).toBeFalse();
+      });
+
+      it('should stop creation when an oversized image is selected', () => {
+        const file = new File(['image'], 'large.png', { type: 'image/png' });
+        Object.defineProperty(file, 'size', { value: 2 * 1024 * 1024 + 1 });
+        component.onFileSelected({ target: { files: [file] } } as unknown as Event);
+        component.onSubmit();
+        expect(component.submitError()).toContain('Image size limit exceeded');
+        expect(productServiceSpy.createProduct).not.toHaveBeenCalled();
+        expect(mediaServiceSpy.uploadProductImages).not.toHaveBeenCalled();
+      });
+
+      it('should submit four valid images when a fifth oversized image is rejected', () => {
+        const valid = Array.from({ length: 4 }, (_, i) =>
+          new File(['image'], `valid${i}.png`, { type: 'image/png' }));
+        const oversized = new File(['image'], 'large.png', { type: 'image/png' });
+        Object.defineProperty(oversized, 'size', { value: 3 * 1024 * 1024 });
+        component.onFileSelected({ target: { files: [...valid, oversized] } } as unknown as Event);
+        expect(component.images().length).toBe(4);
+        expect(component.imageError()).toContain('Oversized images were not added');
+        productServiceSpy.createProduct.and.returnValue(of(mockProduct));
+        mediaServiceSpy.uploadProductImages.and.returnValue(of(mockImagesResponse));
+        productServiceSpy.updateProduct.and.returnValue(of(mockProduct));
+        component.onSubmit();
+        expect(productServiceSpy.createProduct).toHaveBeenCalledTimes(1);
+        expect(mediaServiceSpy.uploadProductImages).toHaveBeenCalledWith('prod-123', valid);
+        expect(component.submitError()).toBe('');
+        expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/seller');
+      });
+
+      it('should preserve valid previews and permit submission after a later oversized selection', () => {
+        const valid = new File(['image'], 'valid.png', { type: 'image/png' });
+        component.onFileSelected({ target: { files: [valid] } } as unknown as Event);
+        const oversized = new File(['image'], 'large.png', { type: 'image/png' });
+        Object.defineProperty(oversized, 'size', { value: 3 * 1024 * 1024 });
+        component.onFileSelected({ target: { files: [oversized] } } as unknown as Event);
+        productServiceSpy.createProduct.and.returnValue(of(mockProduct));
+        mediaServiceSpy.uploadProductImages.and.returnValue(of(mockImagesResponse));
+        productServiceSpy.updateProduct.and.returnValue(of(mockProduct));
+        component.onSubmit();
+        expect(mediaServiceSpy.uploadProductImages).toHaveBeenCalledWith('prod-123', [valid]);
+        expect(component.submitError()).toBe('');
+      });
+
+      it('should allow correction after rejecting an oversized image', () => {
+        const large = new File(['image'], 'large.png', { type: 'image/png' });
+        Object.defineProperty(large, 'size', { value: 3 * 1024 * 1024 });
+        component.onFileSelected({ target: { files: [large] } } as unknown as Event);
+        const valid = new File(['image'], 'valid.png', { type: 'image/png' });
+        component.onFileSelected({ target: { files: [valid] } } as unknown as Event);
+        productServiceSpy.createProduct.and.returnValue(of(mockProduct));
+        mediaServiceSpy.uploadProductImages.and.returnValue(of(mockImagesResponse));
+        productServiceSpy.updateProduct.and.returnValue(of(mockProduct));
+        component.onSubmit();
+        expect(productServiceSpy.createProduct).toHaveBeenCalledTimes(1);
+        expect(mediaServiceSpy.uploadProductImages).toHaveBeenCalledWith('prod-123', [valid]);
+      });
+
+      it('should reject the sixth image and still submit five images at the size boundary', () => {
+        const files = Array.from({ length: 6 }, (_, i) => {
+          const file = new File(['image'], `image${i}.png`, { type: 'image/png' });
+          Object.defineProperty(file, 'size', { value: 2 * 1024 * 1024 });
+          return file;
+        });
+        component.onFileSelected({ target: { files } } as unknown as Event);
+        expect(component.images().length).toBe(5);
+        expect(component.imageError()).toContain('Maximum 5 images');
+        productServiceSpy.createProduct.and.returnValue(of(mockProduct));
+        mediaServiceSpy.uploadProductImages.and.returnValue(of(mockImagesResponse));
+        productServiceSpy.updateProduct.and.returnValue(of(mockProduct));
+        component.onSubmit();
+        expect(mediaServiceSpy.uploadProductImages).toHaveBeenCalledWith('prod-123', files.slice(0, 5));
+        expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/seller');
+      });
+
+      it('should delete the newly created draft and explain a proxy 413', () => {
+        const file = new File(['image'], 'test.png', { type: 'image/png' });
+        component.onFileSelected({ target: { files: [file] } } as unknown as Event);
+        productServiceSpy.createProduct.and.returnValue(of(mockProduct));
+        productServiceSpy.deleteProduct.and.returnValue(of(undefined));
+        mediaServiceSpy.uploadProductImages.and.returnValue(throwError(() =>
+          new HttpErrorResponse({ status: 413, error: '<html>Request Entity Too Large</html>' })));
+        component.onSubmit();
+        expect(productServiceSpy.deleteProduct).toHaveBeenCalledWith('prod-123');
+        expect(productServiceSpy.updateProduct).not.toHaveBeenCalled();
+        expect(component.submitError()).toContain('Image size limit exceeded');
+        expect(component.isSubmitting()).toBeFalse();
+        expect(routerSpy.navigateByUrl).not.toHaveBeenCalled();
+      });
+
+      it('should explain when a size rejection cannot be cleaned up', () => {
+        const file = new File(['image'], 'test.png', { type: 'image/png' });
+        component.onFileSelected({ target: { files: [file] } } as unknown as Event);
+        productServiceSpy.createProduct.and.returnValue(of(mockProduct));
+        productServiceSpy.deleteProduct.and.returnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+        mediaServiceSpy.uploadProductImages.and.returnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
+        component.onSubmit();
+        expect(component.submitError()).toContain('could not be removed');
+        expect(component.submitError()).toContain('Delete it from your dashboard');
+        expect(component.isSubmitting()).toBeFalse();
+        expect(routerSpy.navigateByUrl).not.toHaveBeenCalled();
       });
 
       it('should handle 400 backend field errors', () => {

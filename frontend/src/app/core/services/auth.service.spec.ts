@@ -149,7 +149,7 @@ describe('AuthService', () => {
             httpTestingController.expectOne('/auth/login').flush(mockAuthResponse);
             httpTestingController.expectOne('/media/profile').flush({}, { status: 503, statusText: 'Unavailable' });
             expect(service.isAuthenticated()).toBeTrue();
-            expect(service.avatarUploadWarning()).toContain('could not be saved');
+            expect(service.avatarUploadWarning()).toContain('avatar upload failed');
             service.login(payload).subscribe();
             httpTestingController.expectOne('/auth/login').flush(mockAuthResponse);
             httpTestingController.expectOne('/media/profile').flush({ avatar: { id: 'retry-avatar', url: '/image' } });

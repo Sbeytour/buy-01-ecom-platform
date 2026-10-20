@@ -31,6 +31,8 @@ export class NewProduct implements OnInit {
 
   readonly isEditMode = signal(false);
   private editProductId = '';
+  private readonly maxImages = 5;
+  private readonly maxImageBytes = 2 * 1024 * 1024;
 
   readonly isSubmitting = signal(false);
   readonly submitError = signal('');
@@ -103,6 +105,7 @@ export class NewProduct implements OnInit {
   removeImage(index: number): void {
     const updated = this.images().filter((_, i) => i !== index);
     this.images.set(updated);
+    this.imageError.set('');
   }
 
   onSubmit(): void {
@@ -223,20 +226,25 @@ export class NewProduct implements OnInit {
 
     const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
     const currentImages = this.images();
-    const slotsLeft = 5 - currentImages.length;
+    const slotsLeft = this.maxImages - currentImages.length;
 
     if (slotsLeft <= 0) {
       this.imageError.set('Maximum 5 images are allowed.');
       return;
     }
 
+    const oversized = files.some((file) => file.size > this.maxImageBytes);
+    const invalidType = files.some((file) => !allowedTypes.has(file.type));
     const validFiles = files
-      .filter((file) => allowedTypes.has(file.type))
-      .filter((file) => file.size <= 2 * 1024 * 1024)
+      .filter((file) => allowedTypes.has(file.type) && file.size <= this.maxImageBytes)
       .slice(0, slotsLeft);
 
-    if (validFiles.length < files.length) {
-      this.imageError.set('Only PNG/JPG/GIF/WEBP images up to 2MB are accepted. Max 5 images.');
+    if (oversized) {
+      this.imageError.set('Image size limit exceeded. Each image must be 2 MB or less. Oversized images were not added.');
+    } else if (invalidType) {
+      this.imageError.set('Only PNG/JPG/GIF/WEBP images up to 2MB are accepted. Unsupported files were not added.');
+    } else if (files.length > slotsLeft) {
+      this.imageError.set('Maximum 5 images are allowed. Extra images were not added. You can save with the selected images.');
     }
 
     const newPreviews = validFiles.map((file) => ({
@@ -288,6 +296,12 @@ export class NewProduct implements OnInit {
   }
 
   private handleSubmitError(error: HttpErrorResponse): void {
+    if (error.status === 413) {
+      this.submitError.set(this.submitError()
+        || 'Image size limit exceeded. Use at most 5 images of 2 MB each, then try again.');
+      return;
+    }
+
     if (error.error?.details) {
       const details = error.error.details;
       this.fieldErrors.set(details);

@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, "Uploaded payload exceeds configured request size");
+        return buildResponse(HttpStatus.CONTENT_TOO_LARGE, "Image size limit exceeded. Each image must be 2 MB or less; at most 5 images per upload.");
     }
 
     @ExceptionHandler(MultipartException.class)
