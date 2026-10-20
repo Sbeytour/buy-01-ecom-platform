@@ -76,6 +76,8 @@ services:
     container_name: ecom-media-service
     env_file:
       - ./backend/docker.env
+    volumes:
+      - ./backend/keys/public.pem:/opt/keys/public.pem:ro
     depends_on:
       mongo:
         condition: service_healthy
@@ -128,6 +130,8 @@ services:
     container_name: ecom-product-service
     env_file:
       - ./backend/docker.env
+    volumes:
+      - ./backend/keys/public.pem:/opt/keys/public.pem:ro
     depends_on:
       mongo:
         condition: service_healthy
@@ -153,7 +157,7 @@ services:
     env_file:
       - ./backend/docker.env
     volumes:
-      - ./backend/keys:/opt/keys:ro
+      - ./backend/keys/public.pem:/opt/keys/public.pem:ro
       - ./backend/certs:/opt/certs:ro
     depends_on:
       discovery-service:

@@ -6,7 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -27,11 +28,11 @@ public class MediaController {
 
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProductImagesResponse> uploadProductImages(
-            @RequestHeader("X-User-Id") String userId,
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam("productId") String productId,
             @RequestPart("files") MultipartFile[] files) {
 
-        ProductImagesResponse response = mediaService.uploadProductImages(userId, productId, files);
+        ProductImagesResponse response = mediaService.uploadProductImages(jwt.getSubject(), productId, files);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -42,9 +43,9 @@ public class MediaController {
 
     @PostMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProfileImageResponse> uploadProfileImage(
-            @RequestHeader("X-User-Id") String userId,
+            @AuthenticationPrincipal Jwt jwt,
             @RequestPart("file") MultipartFile file) {
-        return ResponseEntity.ok(mediaService.uploadProfileImage(userId, file));
+        return ResponseEntity.ok(mediaService.uploadProfileImage(jwt.getSubject(), file));
     }
 
     @GetMapping("/profile/{userId}")

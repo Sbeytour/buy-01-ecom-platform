@@ -6,6 +6,11 @@ spring:
     import: optional:file:../.env[.properties]
   application:
     name: user-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          public-key-location: file:${JWT_PUBLIC_KEY_PATH}
   mongodb:
     uri: mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_USER_DATABASE}?authSource=admin
     auto-index-creation: true

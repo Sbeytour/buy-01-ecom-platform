@@ -67,6 +67,7 @@ class AuthServiceTest {
         assertNotNull(response);
         assertEquals("test@test.com", response.user().email());
         verify(userRepository).save(any(User.class));
+        verifyNoInteractions(jwtService, authenticationManager);
     }
 
     @Test

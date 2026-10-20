@@ -11,12 +11,18 @@ spring:
     import: optional:file:../.env[.properties]
   application:
     name: gateway-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          public-key-location: file:${JWT_PUBLIC_KEY_PATH}
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: false
-          lower-case-service-id: true
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
 
 eureka:
   client:
@@ -24,6 +30,3 @@ eureka:
     fetch-registry: true
     service-url:
       defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
-
-jwt:
-  public-key: ${JWT_PUBLIC_KEY_PATH}
